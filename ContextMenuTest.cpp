@@ -20,13 +20,14 @@ struct params_t {
     float branch_near_edge_offset = 100.0f;
     float branch_far_edge_offset = 100.0f;
     float branch_far_edge_dead_zone = 150.0f;
-    float branch_label_length_offset = 400.0f;
+    float branch_label_length_offset = 300.0f;
     float branch_label_height_offset = 50.0f;
     float leaf_base_offset = 150.0f;
     float leaf_height = 400.0f;
+    int min_window_margin = 200;
 };
 params_t params;
-float const display_scale = 0.3f;
+float const display_scale = 0.2f;
 
 float const sqrt_1_2 = 0.70710678f;
 float const tan_pi_8 = 0.41421356f;
@@ -378,7 +379,7 @@ HFONT hfont_selection;
 HFONT hfont_label;
 COLORREF color_label_waiting = RGB(0, 0, 0);
 COLORREF color_label_selected = RGB(255, 0, 0);
-COLORREF color_label_disabled = RGB(128, 128, 128);
+COLORREF color_label_disabled = RGB(192, 192, 192);
 
 // Forward declarations of functions included in this code module:
 ATOM                MyRegisterClass(HINSTANCE hInstance);
@@ -434,11 +435,11 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     MyRegisterClass(hInstance);
 
     hbrush_background = CreateSolidBrush(RGB(255, 255, 255));
-    hpen_geometry_passive = CreatePen(PS_SOLID, 0, RGB(0, 0, 0));
+    hpen_geometry_passive = CreatePen(PS_SOLID, 0, RGB(128, 128, 128));
     hpen_geometry_active = CreatePen(PS_SOLID, 0, RGB(255, 0, 0));
     hpen_current = CreatePen(PS_SOLID, 0, RGB(0, 128, 0));
     hfont_selection = CreateFontW(
-        24,
+        20,
         0,
         0,
         0,
@@ -453,7 +454,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
         FIXED_PITCH | FF_DONTCARE,
         nullptr);
     hfont_label = CreateFontW(
-        20,
+        14,
         0,
         0,
         0,
@@ -808,6 +809,22 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wparam, LPARAM lparam) 
             mode = Mode::Pressed;
             center_point.x = GET_X_LPARAM(lparam);
             center_point.y = GET_Y_LPARAM(lparam);
+            RECT client_rect;
+            if (!GetClientRect(hwnd, &client_rect)) {
+                winapi_failure();
+            }
+            int cx = client_rect.right - client_rect.left;
+            int cy = client_rect.bottom - client_rect.top;
+            if (center_point.x < params.min_window_margin) {
+                center_point.x = params.min_window_margin;
+            } else if (center_point.x > cx - params.min_window_margin) {
+                center_point.x = cx - params.min_window_margin;
+            }
+            if (center_point.y < params.min_window_margin) {
+                center_point.y = params.min_window_margin;
+            } else if (center_point.y > cy - params.min_window_margin) {
+                center_point.y = cy - params.min_window_margin;
+            }
             menu_state.reset();
             InvalidateRect(hwnd, nullptr, FALSE);
         }
