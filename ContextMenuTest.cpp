@@ -387,6 +387,14 @@ BOOL                InitInstance(HINSTANCE, int);
 LRESULT CALLBACK    WndProc(HWND, UINT, WPARAM, LPARAM);
 INT_PTR CALLBACK    About(HWND, UINT, WPARAM, LPARAM);
 
+void SetCursorWindowPos(HWND hwnd, int x, int y) {
+    POINT pos;
+    pos.x = x;
+    pos.y = y;
+    ClientToScreen(hwnd, &pos);
+    SetCursorPos(pos.x, pos.y);
+}
+
 [[noreturn]] void winapi_failure() {
     DWORD errCode = GetLastError();
     LPWSTR buffer = nullptr;
@@ -806,7 +814,6 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wparam, LPARAM lparam) 
         if (mode == Mode::Clicked) {
             mode = Mode::PressedAgain;
         } else {
-            mode = Mode::Pressed;
             center_point.x = GET_X_LPARAM(lparam);
             center_point.y = GET_Y_LPARAM(lparam);
             RECT client_rect;
@@ -826,6 +833,11 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wparam, LPARAM lparam) 
                 center_point.y = cy - params.min_window_margin;
             }
             menu_state.reset();
+
+            SetCursorWindowPos(hwnd, center_point.x, center_point.y);
+
+            mode = Mode::Pressed;
+
             InvalidateRect(hwnd, nullptr, FALSE);
         }
         return 0;
@@ -878,21 +890,22 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wparam, LPARAM lparam) 
         }
         return 0;
     }
-    case WM_INPUT:
+    case WM_MOUSEMOVE:
     {
-        UINT dwSize;
-        RAWINPUT raw;
-        GetRawInputData((HRAWINPUT)lparam, RID_INPUT, NULL, &dwSize, sizeof(RAWINPUTHEADER));
-        if (dwSize > sizeof(raw)) {
-            printf("Raw input data is too large\n");
-            return 0;
+        if (mode != Mode::Disabled) {
+            int dx = GET_X_LPARAM(lparam) - center_point.x;
+            int dy = GET_Y_LPARAM(lparam) - center_point.y;
+
+            if (dx != 0 || dy != 0) {
+                menu_state.apply_delta(vec2{dx / display_scale, dy / display_scale});
+                // menu_state.apply_delta(vec2{(float)dx, (float)dy});
+
+                SetCursorWindowPos(hwnd, center_point.x, center_point.y);
+
+                InvalidateRect(hwnd, nullptr, FALSE);
+            }
         }
-        GetRawInputData((HRAWINPUT)lparam, RID_INPUT, &raw, &dwSize, sizeof(RAWINPUTHEADER));
-        if (raw.header.dwType == RIM_TYPEMOUSE) {
-            RAWMOUSE& mouse = raw.data.mouse;
-            menu_state.apply_delta(vec2{(float)mouse.lLastX, (float)mouse.lLastY});
-            InvalidateRect(hwnd, nullptr, FALSE);
-        }
+
         return 0;
     }
     default:
